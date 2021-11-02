@@ -68,4 +68,5 @@ insNow:
 /* your insert code to here */	
 	jr	x1
 
+/*뒤에서부터 shift하며 탐색하는 방법 시도해보기*/
 
