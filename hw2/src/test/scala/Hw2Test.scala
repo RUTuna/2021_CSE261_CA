@@ -62,9 +62,9 @@ class ImmGenTest extends FlatSpec with Matchers {
         val tests = List(
           List("x12341223".U, "x124".U), //sd
           List("xabc41223".U, "xFFFFFFFFFFFFFAA4".U), //sd
-          List("x02341263".U, "x24".U), //beq
-          List("x92341263".U, "xFFFFFFFFFFFFF124".U), //beq
-          List("xabc41263".U, "xFFFFFFFFFFFFF2A4".U), //beq
+          List("x02341263".U, "x12".U), //beq
+          List("x92341263".U, "xFFFFFFFFFFFFF892".U), //beq 
+          List("xabc41263".U, "xFFFFFFFFFFFFF952".U), //beq
           List("x12341213".U, "x123".U), //addi
         )
         tests.foreach((t) => {

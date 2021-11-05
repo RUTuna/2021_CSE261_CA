@@ -20,9 +20,9 @@ object OpCode {
 
 object AluOp {
   val ld = "b00".U
-  val sd = "b01".U
-  val beq = "b10".U
-  val reg = "b11".U
+  val sd = "b00".U
+  val beq = "b01".U
+  val reg = "b10".U
 }
 
 object AluCtrl {
@@ -49,8 +49,13 @@ class ALU extends Module {
   io.res := 0.U
   io.zero := true.B
 
+  switch(io.ctrl){
+    is(AluCtrl.and) {io.res := io.a & io.b}
+    is(AluCtrl.or) {io.res := io.a | io.b}
+    is(AluCtrl.add) {io.res := io.a + io.b}
+    is(AluCtrl.sub) {io.res := io.a - io.b}
+  }
   /*Your code ends here */
-
 
 }
 
@@ -68,6 +73,25 @@ class ImmGen extends Module {
   /* Your code starts here*/
   io.imm := 0.U
 
+  switch(io.insn(6,0)){
+    is(OpCode.beq) {
+      val back = Cat(io.insn(30,25), io.insn(11,8))
+      val front = Cat(io.insn(31,31), io.insn(7,7))
+      io.imm := Cat(front, back)
+    } 
+    is(OpCode.ld) { 
+      io.imm := io.insn(31,20)
+    } 
+    is(OpCode.sd) {
+      io.imm := Cat(io.insn(31,25), io.insn(11,7))
+    }
+    is(OpCode.add) {
+      io.imm := io.insn
+    }
+    is(OpCode.addi) {
+      io.imm := io.insn(31,20)
+    }
+  }
   /*Your code ends here */
 
 }
@@ -87,6 +111,25 @@ class ALUControl extends Module {
   /* Your code starts here*/
   io.aluCtrl := 0.U
 
+  when(io.aluOp === 0.U) {
+    io.aluCtrl := AluCtrl.add
+  } .elsewhen (io.aluOp === 1.U) {
+    io.aluCtrl := AluCtrl.sub
+  } .otherwise { 
+    when(io.funct3 === 0.U){
+      when(io.funct7 === 0.U) {
+        io.aluCtrl := AluCtrl.add
+      } .otherwise {
+        io.aluCtrl := AluCtrl.sub
+      }
+    } .otherwise {
+      when(io.funct3(0,0) === 0.U) {
+        io.aluCtrl := AluCtrl.or
+      } .otherwise {
+        io.aluCtrl := AluCtrl.and
+      }
+    }
+  }
   /*Your code ends here */
 
 }

@@ -26,6 +26,9 @@ class Passthrough extends Module {
     val out = Output(UInt(4.W))
   })
   io.out := io.in
+  val test = io.in(0,0)
+  println(s"${test.getClass().getName()}, ${test}")
+  //printf("test: %x %d", test, test)
   printf("out: %x\n", io.out)
 }
 

@@ -21,6 +21,12 @@ Vagrant.configure("2") do |config|
       #time bash hw/init.sh
       #echo "export RISCV=/home/vagrant/tools/riscv/" >> /home/vagrant/.bashrc
       #echo "export PATH=/home/vagrant/tools/riscv/bin:$PATH" >> /home/vagrant/.bashrc
+      fallocate -l 1G /swapfile
+      dd if=/dev/zero of=/swapfile bs=1024 count=16777216
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
   SHELL
 
 end

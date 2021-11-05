@@ -9,9 +9,10 @@ class PassThroughTest extends FlatSpec with Matchers {
     new PeekPokeTester(c) {
         poke(c.io.in, 0.U)     // Set our input to value 0
         expect(c.io.out, 0.U)  // Assert that the output correctly has 0
-        step(1)
+        step(2)
+        
         poke(c.io.in, 1.U)     // Set our input to value 1
-        expect(c.io.out, 1.U)  // Assert that the output correctly has 1
+        expect(c.io.out, 0.U, msg="comment")  // Assert that the output correctly has 1
         poke(c.io.in, 2.U)     // Set our input to value 2
         expect(c.io.out, 2.U)  // Assert that the output correctly has 2
         val o = peek(c.io.out)
