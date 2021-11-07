@@ -70,28 +70,54 @@ class ImmGen extends Module {
     val imm = Output(UInt(64.W))
   })
 
-  /* Your code starts here*/
   io.imm := 0.U
-
-  switch(io.insn(6,0)){
-    is(OpCode.beq) {
-      val back = Cat(io.insn(30,25), io.insn(11,8))
-      val front = Cat(io.insn(31,31), io.insn(7,7))
-      io.imm := Cat(front, back)
-    } 
-    is(OpCode.ld) { 
-      io.imm := io.insn(31,20)
-    } 
-    is(OpCode.sd) {
-      io.imm := Cat(io.insn(31,25), io.insn(11,7))
+  /* Your code starts here*/
+  when(io.insn(31,31) === 1.U){
+    val nega = "xFFFFFFFFFFFFF".U
+    switch(io.insn(6,0)){
+      is(OpCode.beq) {
+        val back = Cat(io.insn(30,25), io.insn(11,8))
+        val front = Cat(io.insn(31,31), io.insn(7,7))
+        val test = Cat(front, back)
+        io.imm := Cat(nega, test)
+      } 
+      is(OpCode.ld) { 
+        io.imm := Cat(nega, io.insn(31,20)) 
+      } 
+      is(OpCode.sd) {
+        val test = Cat(io.insn(31,25), io.insn(11,7))
+        io.imm :=  Cat(nega, test)
+      }
+      is(OpCode.add) {
+        io.imm := Cat(nega, io.insn) 
+      }
+      is(OpCode.addi) {
+        io.imm := Cat(nega, io.insn(31,20))
+      }
     }
-    is(OpCode.add) {
-      io.imm := io.insn
-    }
-    is(OpCode.addi) {
-      io.imm := io.insn(31,20)
+  } .otherwise {
+    switch(io.insn(6,0)){
+      is(OpCode.beq) {
+        val back = Cat(io.insn(30,25), io.insn(11,8))
+        val front = Cat(io.insn(31,31), io.insn(7,7))
+        io.imm := Cat(front, back)
+      } 
+      is(OpCode.ld) { 
+        io.imm := io.insn(31,20)
+      } 
+      is(OpCode.sd) {
+        io.imm := Cat(io.insn(31,25), io.insn(11,7))
+      }
+      is(OpCode.add) {
+        io.imm := io.insn
+      }
+      is(OpCode.addi) {
+        io.imm := io.insn(31,20)
+      }
     }
   }
+
+
   /*Your code ends here */
 
 }
@@ -149,18 +175,55 @@ class Control extends Module {
     val branch = Output(Bool())
   })
 /* Your code starts here*/
-    io.aluOp := 0.U
-
+  io.aluOp := 0.U
   io.write_reg := false.B
-
   io.aluSrcFromReg := false.B
-
   io.memWrite := false.B
-
   io.memToReg := false.B
-
   io.branch := false.B
 
+  switch(io.in) {
+    is(OpCode.beq) {
+      io.aluOp := AluOp.beq
+      io.write_reg := false.B
+      io.aluSrcFromReg := false.B
+      io.memWrite := false.B
+      // io.memToReg := false.B
+      io.branch := true.B
+    } 
+    is(OpCode.ld) { 
+      io.aluOp := AluOp.ld
+      io.write_reg := true.B
+      io.aluSrcFromReg := false.B
+      io.memWrite := false.B
+      io.memToReg := true.B
+      io.branch := false.B
+    } 
+    is(OpCode.sd) {
+      io.aluOp := AluOp.sd
+      io.write_reg := false.B
+      io.aluSrcFromReg := false.B
+      io.memWrite := true.B
+      // io.memToReg := true.B
+      io.branch := false.B
+    }
+    is(OpCode.add) {
+      io.aluOp := AluOp.reg
+      io.write_reg := true.B
+      io.aluSrcFromReg := true.B
+      io.memWrite := false.B
+      io.memToReg := false.B
+      io.branch := false.B
+    }
+    is(OpCode.addi) {
+      io.aluOp := AluOp.reg
+      io.write_reg := true.B
+      io.aluSrcFromReg := false.B
+      io.memWrite := false.B
+      io.memToReg := false.B
+      io.branch := false.B
+    }
+  }
 
   /*Your code ends here */
 
