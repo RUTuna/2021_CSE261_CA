@@ -17,7 +17,7 @@ Vagrant.configure("2") do |config|
     vb.cpus = 2					# # of cores
   end
   config.vm.provision "shell", inline: <<-SHELL
-      apt-get update && apt-get install -yq build-essential unzip device-tree-compiler openjdk-11-jdk
+      apt-get update && apt-get install -yq build-essential unzip device-tree-compiler openjdk-11-jdk graphviz
       #time bash hw/init.sh
       #echo "export RISCV=/home/vagrant/tools/riscv/" >> /home/vagrant/.bashrc
       #echo "export PATH=/home/vagrant/tools/riscv/bin:$PATH" >> /home/vagrant/.bashrc
