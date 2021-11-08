@@ -1,0 +1,32 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/focal64"
+
+  #config.vm.synced_folder ".", "/home/vagrant/hw", type: "rsync",
+  #  rsync__args: ["-az"]
+  config.vm.synced_folder ".", "/home/vagrant/hw"
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui = false				# GUI Setting
+    vb.name = "cse261-1-hw3"		# Name
+    vb.memory = 1024			# 1024MiB Memory
+    vb.cpus = 2					# # of cores
+  end
+  config.vm.provision "shell", inline: <<-SHELL
+      apt-get update && apt-get install -yq build-essential unzip device-tree-compiler openjdk-11-jdk
+      time bash hw/init.sh
+      echo "export RISCV=/home/vagrant/tools/riscv/" >> /home/vagrant/.bashrc
+      echo "export PATH=/home/vagrant/tools/riscv/bin:$PATH" >> /home/vagrant/.bashrc
+      fallocate -l 8G /swapfile
+      dd if=/dev/zero of=/swapfile bs=1024 count=16777216
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+  SHELL
+
+end
