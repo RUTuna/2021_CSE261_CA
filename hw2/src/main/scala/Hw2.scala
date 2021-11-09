@@ -47,13 +47,19 @@ class ALU extends Module {
   
   /* Your code starts here*/
   io.res := 0.U
-  io.zero := true.B
+  io.zero := false.B
 
   switch(io.ctrl){
     is(AluCtrl.and) {io.res := io.a & io.b}
     is(AluCtrl.or) {io.res := io.a | io.b}
     is(AluCtrl.add) {io.res := io.a + io.b}
-    is(AluCtrl.sub) {io.res := io.a - io.b}
+    is(AluCtrl.sub) {
+      when(io.a - io.b === 0.U){
+        io.zero := true.B
+      } .otherwise {
+        io.res := io.a - io.b
+      }
+      }
   }
   /*Your code ends here */
 
