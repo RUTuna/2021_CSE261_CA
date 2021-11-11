@@ -14,15 +14,15 @@ object Hw3Tests {
   val testHome = "sw/test"
   val instructionTests = List(
   ("addi", "addi.s",
-  """[0] pc: 0, insn: 1008093, write: 0, wdata: 0, addr: 32, read: 0, rdata: 0, halted: 0
-[1] pc: 4, insn: b083, write: 0, wdata: 0, addr: 32, read: 1, rdata: 0, halted: 0
+  """[0] pc: 0, insn: 1000093, write: 0, wdata: 0, addr: 16, read: 0, rdata: 0, halted: 0
+[1] pc: 4, insn: b083, write: 0, wdata: 0, addr: 16, read: 1, rdata: 0, halted: 0
 [2] pc: 8, insn: 5073, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
 [3] pc: c, insn: 53, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 1""")
   ,("add", "add.s",
   """[0] pc: 0, insn: 1000093, write: 0, wdata: 0, addr: 16, read: 0, rdata: 0, halted: 0
-[1] pc: 4, insn: 2000393, write: 0, wdata: 0, addr: 32, read: 0, rdata: 0, halted: 0
-[2] pc: 8, insn: 2081b3, write: 0, wdata: 0, addr: 16, read: 0, rdata: 0, halted: 0
-[3] pc: c, insn: 1b083, write: 0, wdata: 0, addr: 16, read: 1, rdata: 0, halted: 0
+[1] pc: 4, insn: 2000113, write: 0, wdata: 0, addr: 32, read: 0, rdata: 0, halted: 0
+[2] pc: 8, insn: 2081b3, write: 0, wdata: 20, addr: 48, read: 0, rdata: 0, halted: 0
+[3] pc: c, insn: 1b083, write: 0, wdata: 0, addr: 48, read: 1, rdata: 20, halted: 0
 [4] pc: 10, insn: 5073, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
 [5] pc: 14, insn: 53, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 1""")
   ,("ldsd", "ldsd.s",
