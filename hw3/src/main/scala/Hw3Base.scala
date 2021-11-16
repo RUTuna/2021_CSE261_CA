@@ -21,6 +21,7 @@ class Trace() extends Bundle {
 class BaseSystem(prog: Array[String] = Array("x13", "x80", "x30", "x00")) extends Module {
   val io = IO(new Bundle{
     val trace = Output(new Trace())
+    //val dout = Output(UInt(64.W))
   })
 
   // Submodules
@@ -35,7 +36,7 @@ class BaseSystem(prog: Array[String] = Array("x13", "x80", "x30", "x00")) extend
     
   
 
-  
+  //io.dout := core.io.dout
 
   dmem.io.addr := core.io.dmem_addr
   dmem.io.dataIn := core.io.dmem_wdata
@@ -51,9 +52,9 @@ class BaseSystem(prog: Array[String] = Array("x13", "x80", "x30", "x00")) extend
   // Trace interface
   io.trace.pc := core.io.imem_addr
   io.trace.insn := imem.io.dataOut
-  io.trace.wdata := core.io.dmem_wdata
-  io.trace.addr := core.io.dmem_addr
-  io.trace.rdata := core.io.dmem_rdata
+  io.trace.wdata := Mux(core.io.dmem_write, core.io.dmem_wdata, 0.U)
+  io.trace.addr := Mux(core.io.dmem_write || core.io.dmem_read, core.io.dmem_addr, false.B)
+  io.trace.rdata := Mux(core.io.dmem_read, core.io.dmem_rdata, 0.U)
   io.trace.write := core.io.dmem_write
   io.trace.read := core.io.dmem_read
   io.trace.halted := core.io.halted
@@ -76,7 +77,9 @@ class ReadWriteMem(size: Int = 1024) extends Module {
   val const = VecInit.tabulate(1024)((x: Int) => x.U(64.W))
   
   
-  mem.write(io.addr, io.dataIn)
+  when(io.write) {
+    mem.write(io.addr, io.dataIn)
+  }
   val memOut = Wire(UInt())
   memOut := mem.read(io.addr(8,0))
   
