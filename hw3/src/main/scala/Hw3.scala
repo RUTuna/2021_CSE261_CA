@@ -31,26 +31,66 @@ class Control extends Module {
     val indir = Output(Bool())
   })
 
-  io.aluOp := false.B
-
-  io.write_reg := false.B
-
   io.jal := false.B
   io.link := false.B
   io.indir := false.B
 
+  io.memRead := false.B
 
-
+  io.aluOp := 0.U
+  io.write_reg := false.B
   io.aluSrcFromReg := false.B
+  io.memWrite := false.B
+  io.memToReg := false.B
+  io.branch := false.B
 
-  io.memWrite := 0.U
-
-  io.memToReg := 0.U
-
-  io.branch := 0.U
-
-  io.memRead := 0.U
-
+  switch(io.in) {
+    is(OpCode.branch) {
+      io.write_reg := false.B
+      io.aluSrcFromReg := false.B
+      io.memWrite := false.B
+      io.memRead := false.B
+      // io.memToReg := false.B
+      io.aluOp := AluOp.beq
+      io.branch := true.B
+    } 
+    is(OpCode.load) { 
+      io.aluOp := AluOp.ld
+      io.write_reg := true.B
+      io.aluSrcFromReg := true.B
+      io.memWrite := false.B
+      io.memRead := true.B
+      io.memToReg := true.B
+      io.branch := false.B
+    } 
+    is(OpCode.store) {
+      io.aluOp := AluOp.sd
+      io.write_reg := false.B
+      io.aluSrcFromReg := true.B
+      io.memWrite := true.B
+      io.memRead := false.B
+      // io.memToReg := true.B
+      io.branch := false.B
+    }
+    is(OpCode.aluReg) {
+      io.aluOp := AluOp.reg
+      io.write_reg := true.B
+      io.aluSrcFromReg := false.B
+      io.memWrite := false.B
+      io.memRead := false.B
+      io.memToReg := false.B
+      io.branch := false.B
+    }
+    is(OpCode.aluImm) {
+      io.aluOp := AluOp.reg
+      io.write_reg := true.B
+      io.aluSrcFromReg := true.B
+      io.memWrite := false.B
+      io.memRead := false.B
+      io.memToReg := false.B
+      io.branch := false.B
+    }
+  }
   
 }
 
@@ -67,10 +107,16 @@ class RegFile extends Module {
   })
 
   /* Your code starts here */
+  val registers = Reg(Vec(64, UInt(64.W)))
+  registers(0) := 0.U
+  io.rs1_out := Mux(io.rs1.orR, registers(io.rs1), 0.U)
+  io.rs2_out := Mux(io.rs2.orR, registers(io.rs2), 0.U)
 
-  io.rs1_out := 0.U
-  io.rs2_out := 0.U
-
+  when(io.write && io.rd.orR){
+    registers(io.rd) := io.wdata
+  }
+  printf("[Regfile] rd: %x, rs1: %x, rs2: %x, rs1_out: %x, rs2_out: %x, wdata: %x\n", io.rd, io.rs1, io.rs2, io.rs1_out, io.rs2_out, io.wdata)
+ 
   /* Your code ends here */
 
 
@@ -90,16 +136,24 @@ class Decoder extends Module {
   })
   /* Your code starts here */
  
-  io.opcode := 0.U
+  io.opcode := io.in(6,0)
 
-  io.rd := 0.U
+  switch(io.opcode){
+    is(OpCode.aluImm){printf("[Decoder] aluImm\n")}
+    is(OpCode.aluReg){printf("[Decoder] aluReg\n")}
+    is(OpCode.store){printf("[Decoder] store\n")}
+    is(OpCode.load){printf("[Decoder] load\n")}
+    is(OpCode.branch){printf("[Decoder] branch\n")}
+  }
+
+  io.rd := io.in(11,7)
 
 
-  io.funct3 := 0.U
-  io.rs1 := 0.U
-  io.rs2 := 0.U
+  io.funct3 := io.in(14,12)
+  io.rs1 := io.in(19,15)
+  io.rs2 := io.in(24,20)
   
-  io.funct7 := 0.U
+  io.funct7 := io.in(31,25)
    /* Your code ends here */
 
 
@@ -122,6 +176,26 @@ class ALUControl extends Module {
 
   /* Your code starts here */
   io.aluCtrl := 0.U
+
+  when(io.aluOp === AluOp.ld || io.aluOp === AluOp.sd) {
+    io.aluCtrl := AluCtrl.add
+  } .elsewhen (io.aluOp === AluOp.beq) {
+    io.aluCtrl := AluCtrl.sub
+  } .otherwise { 
+    when(io.funct3 === 0.U){
+      when(io.funct7 === "b0100000".U) {
+        io.aluCtrl := AluCtrl.sub
+      } .otherwise {
+        io.aluCtrl := AluCtrl.add
+      }
+    } .otherwise {
+      when(io.funct3(0,0) === 0.U) {
+        io.aluCtrl := AluCtrl.or
+      } .otherwise {
+        io.aluCtrl := AluCtrl.and
+      }
+    }
+  }
   /* Your code ends here */
 
 }
@@ -134,10 +208,53 @@ class ImmGen extends Module {
   })
 
   /* Your code starts here */
-
   io.imm := 0.U
+  when(io.insn(31,31) === 1.U){
+    val nega = "xFFFFFFFFFFFFF".U
+    switch(io.insn(6,0)){
+      is(OpCode.branch) {
+        val back = Cat(io.insn(30,25), io.insn(11,8))
+        val front = Cat(io.insn(31,31), io.insn(7,7))
+        val test = Cat(front, back)
+        io.imm := Cat(nega, test)
+      } 
+      is(OpCode.load) { 
+        io.imm := Cat(nega, io.insn(31,20)) 
+      } 
+      is(OpCode.store) {
+        val test = Cat(io.insn(31,25), io.insn(11,7))
+        io.imm :=  Cat(nega, test)
+      }
+      is(OpCode.aluReg) {
+        io.imm := Cat(nega, io.insn) 
+      }
+      is(OpCode.aluImm) {
+        io.imm := Cat(nega, io.insn(31,20))
+      }
+    }
+  } .otherwise {
+    switch(io.insn(6,0)){
+      is(OpCode.branch) {
+        val back = Cat(io.insn(30,25), io.insn(11,8))
+        val front = Cat(io.insn(31,31), io.insn(7,7))
+        io.imm := Cat(front, back)
+      } 
+      is(OpCode.load) { 
+        io.imm := io.insn(31,20)
+      } 
+      is(OpCode.store) {
+        io.imm := Cat(io.insn(31,25), io.insn(11,7))
+      }
+      is(OpCode.aluReg) {
+        io.imm := io.insn
+      }
+      is(OpCode.aluImm) {
+        io.imm := io.insn(31,20)
+      }
+    }
+  }
   /* Your code ends here */
-
+  printf("[ImmGen] imm: %x\n", io.imm)
 }
 
 
@@ -160,8 +277,20 @@ class ALU extends Module {
   /* Your code starts here */
 
   io.res := 0.U
-  io.zero := 0.U
-  
+  io.zero := false.B
+
+  switch(io.ctrl){
+    is(AluCtrl.and) {io.res := io.a & io.b}
+    is(AluCtrl.or) {io.res := io.a | io.b}
+    is(AluCtrl.add) {io.res := io.a + io.b}
+    is(AluCtrl.sub) {
+      when(io.a - io.b === 0.U){
+        io.zero := true.B
+      } 
+      io.res := io.a - io.b
+    }
+  }
+  printf("[ALU] ctrl: %x, a: %x, b: %x, res: %x\n", io.ctrl, io.a, io.b, io.res)
   /* Your code ends here */
 
 
@@ -182,10 +311,14 @@ class PCGen extends Module {
   })
 
   /* Your code starts here */
-  io.next_pc :=  0.U
+  val sum = io.this_pc + io.imm64 * 2.U
+  val add = io.branch && io.zero
+  io.next_pc := Mux(io.branch && io.zero, sum, io.this_pc + 4.U)
+  // io.this_pc + 4.U
+  // Mux(io.branch && io.zero, sum, io.this_pc + 4.U)
   /* Your code ends here */
   
-
+  printf("[PCGen] next_pc: %x\n", io.next_pc)
 }
 
 
@@ -240,8 +373,8 @@ class Core extends Module   {
 
   io.dmem_read := false.B
 
-  pcGen.io.branch := 0.U
-  pcGen.io.this_pc := 0.U
+  pcGen.io.branch := control.io.branch
+  pcGen.io.this_pc := pc
   pcGen.io.indir := 0.U
   
   // Fetch
@@ -249,7 +382,7 @@ class Core extends Module   {
   
   
   
-  io.imem_addr := 0.U
+  io.imem_addr := pcGen.io.this_pc
   
   
 
@@ -257,22 +390,22 @@ class Core extends Module   {
   
   
   decoder.io.in := io.imem_insn
-  control.io.in := 0.U
+  control.io.in := decoder.io.opcode
   
-  aluControl.io.funct3 := 0.U
-  aluControl.io.funct7 := 0.U
-  aluControl.io.aluOp := 0.U
+  aluControl.io.funct3 := decoder.io.funct3
+  aluControl.io.funct7 := decoder.io.funct7
+  aluControl.io.aluOp := control.io.aluOp
 
   
-  immGen.io.insn := 0.U
-  pcGen.io.imm64 := 0.U
+  immGen.io.insn := io.imem_insn
+  pcGen.io.imm64 := immGen.io.imm
 
   
-  regfile.io.rs1 := 0.U
-  regfile.io.rs2 := 0.U
-  regfile.io.rd := 0.U
+  regfile.io.rs1 := decoder.io.rs1
+  regfile.io.rs2 := decoder.io.rs2
+  regfile.io.rd := decoder.io.rd
   
-  regfile.io.write := false.B
+  regfile.io.write := control.io.write_reg
   
 
   
@@ -280,21 +413,26 @@ class Core extends Module   {
 
   // EX
   
-  alu.io.ctrl := 0.U
-  alu.io.a := 0.U
-  alu.io.b := 0.U
+  alu.io.ctrl := aluControl.io.aluCtrl
+  alu.io.a := regfile.io.rs1_out
+  alu.io.b := Mux(control.io.aluSrcFromReg, immGen.io.imm, regfile.io.rs2_out)
 
   
-  pcGen.io.zero := false.B
+  pcGen.io.zero := alu.io.zero
   pcGen.io.rs1 := 0.U
   pcGen.io.jal := false.B
 
   // MEM
 
-  io.dmem_addr := 0.U
-  io.dmem_write := false.B
-  io.dmem_read := false.B
-  io.dmem_wdata := false.B
+  when(decoder.io.opcode === OpCode.load || decoder.io.opcode === OpCode.store){
+    io.dmem_addr := alu.io.res
+  } .otherwise {
+    io.dmem_addr := 0.U
+  }
+  // io.dmem_addr := alu.io.res
+  io.dmem_write := control.io.memWrite
+  io.dmem_read := control.io.memRead
+  io.dmem_wdata := regfile.io.rs2_out
 
 
 
@@ -303,13 +441,14 @@ class Core extends Module   {
 
   // WB
 
-  regfile.io.wdata := 0.U
+  regfile.io.wdata := Mux(control.io.memToReg, io.dmem_rdata, alu.io.res)
 
   /* Your code endshere */
 
   // Logs for debugging, freely modify
-  printf("(pc: %x, instruction: %x, next_pc: %x, wdata: %x, write: %x)\n",
-  pc, io.imem_insn, pcGen.io.next_pc, regfile.io.wdata, regfile.io.write)
+  printf("(pc: %x, instruction: %x, aluSrcFromReg: %x, next_pc: %x, wdata: %x, write: %x, dmem_addr: %x, imem_addr: %x)\n",
+  pc, io.imem_insn, control.io.aluSrcFromReg, pcGen.io.next_pc, regfile.io.wdata, regfile.io.write, io.dmem_addr, io.imem_addr)
+  // printf("%x [io_out]imem_addr: %x, dmem_addr: %x, dmem_write: %x, dmem_read: %x, dmem_wdata: %x \n", pc, io.imem_addr, io.dmem_addr, io.dmem_write, io.dmem_read, io.dmem_wdata)
 
 }
 
