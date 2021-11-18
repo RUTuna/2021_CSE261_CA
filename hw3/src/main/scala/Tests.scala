@@ -43,14 +43,14 @@ object Hw3Tests {
 [7] pc: 24, insn: 8463, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
 [8] pc: 28, insn: 5073, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
 [9] pc: 2c, insn: 3023, write: 1, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 1""")
-// ,("jal", "jal.s",
-//   """[0] pc: 0, insn: 1000513, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
-// [1] pc: 4, insn: c000ef, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
-// [2] pc: 10, insn: 2000513, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
-// [3] pc: 14, insn: b103, write: 0, wdata: 0, addr: 8, read: 1, rdata: 0, halted: 0
-// [4] pc: 18, insn: 8067, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
-// [5] pc: 8, insn: a03023, write: 1, wdata: 20, addr: 0, read: 0, rdata: 0, halted: 0
-// [6] pc: c, insn: 5073, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
-// [7] pc: 10, insn: 2000513, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 1""")
+,("jal", "jal.s",
+  """[0] pc: 0, insn: 1000513, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
+[1] pc: 4, insn: c000ef, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
+[2] pc: 10, insn: 2000513, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
+[3] pc: 14, insn: b103, write: 0, wdata: 0, addr: 8, read: 1, rdata: 0, halted: 0
+[4] pc: 18, insn: 8067, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
+[5] pc: 8, insn: a03023, write: 1, wdata: 20, addr: 0, read: 0, rdata: 0, halted: 0
+[6] pc: c, insn: 5073, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 0
+[7] pc: 10, insn: 2000513, write: 0, wdata: 0, addr: 0, read: 0, rdata: 0, halted: 1""")
   )
 }
