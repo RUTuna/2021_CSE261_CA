@@ -354,13 +354,10 @@ class PCGen extends Module {
   })
 
   /* Your code starts here */
-  val sum = io.this_pc + io.imm64 * 2.U
-  val jsum = io.this_pc + io.rs1 * 2.U
-  val add = io.branch && io.zero
   when(io.indir){
-    io.next_pc := Mux(io.jal, jsum, io.rs1)
+    io.next_pc := Mux(io.jal, io.this_pc + io.rs1 * 2.U, io.rs1)
   } .otherwise{
-    io.next_pc := Mux(io.branch && io.zero, sum, io.this_pc + 4.U)
+    io.next_pc := Mux(io.branch && io.zero, io.this_pc + io.imm64 * 2.U, io.this_pc + 4.U)
   }
   /* Your code ends here */
   
