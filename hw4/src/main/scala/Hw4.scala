@@ -33,6 +33,76 @@ class ControlModule extends Module {
   io.out.branch := 0.U
   io.out.memRead := 0.U
   io.out.stall := 0.U
+
+  switch(io.in) {
+    is(OpCode.aluImm){
+      io.out.aluOp := AluOp.reg
+      io.out.write_reg := true.B
+      io.out.aluSrcFromReg := true.B
+      io.out.memWrite := false.B
+      io.out.memToReg := false.B
+      io.out.branch := false.B
+      io.out.memRead := false.B
+    }
+    is(OpCode.aluReg){
+      io.out.aluOp := AluOp.reg
+      io.out.write_reg := true.B
+      io.out.aluSrcFromReg := false.B
+      io.out.memWrite := false.B
+      io.out.memToReg := false.B
+      io.out.branch := false.B
+      io.out.memRead := false.B
+    }
+    is(OpCode.store){
+      io.out.aluOp := AluOp.sd
+      io.out.write_reg := true.B
+      io.out.aluSrcFromReg := false.B
+      io.out.memWrite := true.B
+      io.out.branch := false.B
+      io.out.memRead := false.B
+    }
+    is(OpCode.load){
+      io.out.aluOp := AluOp.ld
+      io.out.write_reg := true.B
+      io.out.aluSrcFromReg := true.B
+      io.out.memWrite := false.B
+      io.out.memToReg := true.B
+      io.out.branch := false.B
+      io.out.memRead := true.B
+    }
+    is(OpCode.branch){
+      io.out.aluOp := AluOp.beq
+      io.out.write_reg := false.B
+      io.out.aluSrcFromReg := false.B
+      io.out.memWrite := false.B
+      io.out.memToReg := false.B
+      io.out.branch := true.B
+      io.out.memRead := false.B
+    }
+    is(OpCode.jal){
+      io.out.aluOp := AluOp.beq
+      io.out.write_reg := true.B
+      io.out.jal := true.B
+      io.out.link := true.B
+      io.out.indir := true.B
+      io.out.aluSrcFromReg := false.B
+      io.out.memWrite := false.B
+      io.out.branch := false.B
+      io.out.memRead := false.B
+    }
+    is(OpCode.jalr){
+      io.out.aluOp := AluOp.ld
+      io.out.write_reg := true.B
+      io.out.jal := false.B
+      io.out.link := true.B
+      io.out.indir := true.B
+      io.out.aluSrcFromReg := true.B
+      io.out.memWrite := false.B
+      io.out.branch := false.B
+      io.out.memRead := false.B
+    }
+
+  }
   
 }
 
@@ -50,9 +120,12 @@ class RegFile extends Module {
 
   val registers = RegInit(VecInit(Seq.fill(32)(0.U(64.W))))
 
-  io.rs1_out := 0.U
-  io.rs2_out := 0.U
+  io.rs1_out := Mux(io.rs1.orR, registers(io.rs1), 0.U)
+  io.rs2_out := Mux(io.rs2.orR, registers(io.rs2), 0.U)
 
+  when(io.write && io.rd.orR){
+    registers(io.rd) := io.wdata
+  }
 
   printf(p"Register content: ${registers}\n")
 
@@ -73,13 +146,13 @@ class Decoder extends Module {
     val imm12 = Output(UInt(12.W))
   })
 
-  io.opcode := 0.U
-  io.rd := 0.U
-  io.funct3 := 0.U
-  io.rs1 := 0.U
-  io.rs2 := 0.U
-  io.imm12 := 0.U
-  io.funct7 := 0.U
+  io.opcode := io.in(6,0)
+  io.rd := io.in(11,7)
+  io.funct3 := io.in(14,12)
+  io.rs1 := io.in(19,15)
+  io.rs2 := io.in(24,20)
+  io.imm12 := 0.U // @@@@@@@@@@@@@@@@@@@
+  io.funct7 := io.in(31,25)
 
 
 }
@@ -101,6 +174,25 @@ class ALUControl extends Module {
 
   io.aluCtrl := 0.U
 
+  when(io.aluOp === AluOp.ld || io.aluOp === AluOp.sd) {
+    io.aluCtrl := AluCtrl.add
+  } .elsewhen (io.aluOp === AluOp.beq) {
+    io.aluCtrl := AluCtrl.sub
+  } .otherwise { 
+    when(io.funct3 === 0.U){
+      when(io.funct7 === "b0100000".U) {
+        io.aluCtrl := AluCtrl.sub
+      } .otherwise {
+        io.aluCtrl := AluCtrl.add
+      }
+    } .otherwise {
+      when(io.funct3(0,0) === 0.U) {
+        io.aluCtrl := AluCtrl.or
+      } .otherwise {
+        io.aluCtrl := AluCtrl.and
+      }
+    }
+  }
 }
 
 
@@ -112,6 +204,67 @@ class ImmGen extends Module {
 
   io.imm := 0.U
 
+  when(io.insn(31,31) === 1.U){
+    val nega = "xFFFFFFFFFFFFF".U
+    switch(io.insn(6,0)){
+      is(OpCode.jal) {
+        val back = Cat(io.insn(20,20), io.insn(30,21))
+        val front = Cat(io.insn(31,31), io.insn(19,11))
+        val test = Cat(front, back)
+        io.imm := Cat(nega, test)
+      }
+      is(OpCode.jalr) {
+        io.imm := Cat(nega, io.insn(31,20)) 
+      }
+      is(OpCode.branch) {
+        val back = Cat(io.insn(30,25), io.insn(11,8))
+        val front = Cat(io.insn(31,31), io.insn(7,7))
+        val test = Cat(front, back)
+        io.imm := Cat(nega, test)
+      } 
+      is(OpCode.load) { 
+        io.imm := Cat(nega, io.insn(31,20)) 
+      } 
+      is(OpCode.store) {
+        val test = Cat(io.insn(31,25), io.insn(11,7))
+        io.imm :=  Cat(nega, test)
+      }
+      is(OpCode.aluReg) {
+        io.imm := Cat(nega, io.insn) 
+      }
+      is(OpCode.aluImm) {
+        io.imm := Cat(nega, io.insn(31,20))
+      }
+    }
+  } .otherwise {
+    switch(io.insn(6,0)){
+      is(OpCode.jal) {
+        val back = Cat(io.insn(20,20), io.insn(30,21))
+        val front = Cat(io.insn(31,31), io.insn(19,11))
+        io.imm := Cat(front, back)
+      }
+      is(OpCode.jalr) {
+        io.imm := io.insn(31,20)
+      }
+      is(OpCode.branch) {
+        val back = Cat(io.insn(30,25), io.insn(11,8))
+        val front = Cat(io.insn(31,31), io.insn(7,7))
+        io.imm := Cat(front, back)
+      } 
+      is(OpCode.load) { 
+        io.imm := io.insn(31,20)
+      } 
+      is(OpCode.store) {
+        io.imm := Cat(io.insn(31,25), io.insn(11,7))
+      }
+      is(OpCode.aluReg) {
+        io.imm := io.insn
+      }
+      is(OpCode.aluImm) {
+        io.imm := io.insn(31,20)
+      }
+    }
+  }
 }
 
 
@@ -135,7 +288,17 @@ class ALU extends Module {
   io.res := 0.U
   io.zero := 0.U
 
-
+  switch(io.ctrl){
+    is(AluCtrl.and) {io.res := io.a & io.b}
+    is(AluCtrl.or) {io.res := io.a | io.b}
+    is(AluCtrl.add) {io.res := io.a + io.b}
+    is(AluCtrl.sub) {
+      when(io.a - io.b === 0.U){
+        io.zero := true.B
+      } 
+      io.res := io.a - io.b
+    }
+  }
 }
 
 
@@ -195,51 +358,53 @@ class Core extends Module {
 
   /* Your code from here */
 
+  val nullControl = Module(new ControlModule())
+  nullControl.io.in := 0.U
 
   io.dmem_read := 0.U
 
   // IF Stage
   
   
-  ifid_reg.io.stall := 0.U
+  ifid_reg.io.stall := control.io.out.stall
   
   
-  next_pc := 0.U
+  next_pc := Mux(exmem_reg.io.out.branch_taken, exmem_reg.io.out.pc, pc + 4.U)
     
   // Fetch
 
-  ifid_reg.io.in.pc := 0.U
-  ifid_reg.io.in.insn := 0.U
-  ifid_reg.io.in.valid := 0.U
+  ifid_reg.io.in.pc := pc
+  ifid_reg.io.in.insn := io.imem_insn
+  ifid_reg.io.in.valid := Mux(started, false.B, true.B)
 
   // ID Stage
 
   
   
   
-  decoder.io.in := 0.U
-  control.io.in := 0.U
+  decoder.io.in := ifid_reg.io.out.insn
+  control.io.in := decoder.io.opcode
 
   
-  immGen.io.insn := 0.U
+  immGen.io.insn := ifid_reg.io.out.insn
 
   
-  regfile.io.rs1 := 0.U
-  regfile.io.rs2 := 0.U
-  regfile.io.rd := 0.U
+  regfile.io.rs1 := decoder.io.rs1
+  regfile.io.rs2 := decoder.io.rs2
+  regfile.io.rd := memwb_reg.io.out.rd
   
-  regfile.io.write := 0.U
+  regfile.io.write := control.io.out.write_reg
 
-  idex_reg.io.in.pc := 0.U
-  idex_reg.io.in.rs1_data := 0.U
-  idex_reg.io.in.rs2_data := 0.U
-  idex_reg.io.in.imm64 := 0.U
-  idex_reg.io.in.rd := 0.U
-  idex_reg.io.in.control := control.io.out
-  idex_reg.io.in.funct3 := 0.U
-  idex_reg.io.in.funct7 := 0.U
-  idex_reg.io.in.debug_insn := 0.U
-  idex_reg.io.in.valid :=  0.U
+  idex_reg.io.in.pc := ifid_reg.io.out.pc
+  idex_reg.io.in.rs1_data := regfile.io.rs1_out
+  idex_reg.io.in.rs2_data := regfile.io.rs2_out
+  idex_reg.io.in.imm64 := immGen.io.imm
+  idex_reg.io.in.rd := decoder.io.rd
+  idex_reg.io.in.control := Mux(ifid_reg.io.out.valid, control.io.out, nullControl.io.out)
+  idex_reg.io.in.funct3 := decoder.io.funct3
+  idex_reg.io.in.funct7 := decoder.io.funct7
+  idex_reg.io.in.debug_insn := ifid_reg.io.out.insn
+  idex_reg.io.in.valid := ifid_reg.io.out.valid
 //!exmem_reg.io.out.branch_taken &
 
   
@@ -252,45 +417,44 @@ class Core extends Module {
 
 
   
-  aluControl.io.funct3 := 0.U
-  aluControl.io.funct7 := 0.U
-  aluControl.io.aluOp := 0.U
+  aluControl.io.funct3 := idex_reg.io.out.funct3
+  aluControl.io.funct7 := idex_reg.io.out.funct7
+  aluControl.io.aluOp := idex_reg.io.out.control.aluOp
   
   
   
-  alu.io.ctrl := 0.U
-  alu.io.a := 0.U
-  alu.io.b := 0.U
+  alu.io.ctrl := aluControl.io.aluCtrl
+  alu.io.a := idex_reg.io.out.rs1_data
+  alu.io.b := Mux(idex_reg.io.out.control.aluSrcFromReg, idex_reg.io.out.imm64 ,idex_reg.io.out.rs2_data) 
 
   
-
 
   exmem_reg.io.in.branch_target := 0.U
-  exmem_reg.io.in.branch_taken := 0.U
+  exmem_reg.io.in.branch_taken := Mux(alu.io.zero && idex_reg.io.out.control.branch, true.B, false.B)
 
-  exmem_reg.io.in.alu_res := 0.U
-  exmem_reg.io.in.rs2_data := 0.U
-  exmem_reg.io.in.control := idex_reg.io.out.control
-  exmem_reg.io.in.pc := 0.U
-  exmem_reg.io.in.debug_insn := 0.U
-  exmem_reg.io.in.valid :=  0.U
-  exmem_reg.io.in.rd := 0.U
+  exmem_reg.io.in.alu_res := alu.io.res
+  exmem_reg.io.in.rs2_data := idex_reg.io.out.rs2_data
+  exmem_reg.io.in.control := Mux(idex_reg.io.out.valid, idex_reg.io.out.control, nullControl.io.out)
+  exmem_reg.io.in.pc := idex_reg.io.out.pc + idex_reg.io.out.imm64 * 2.U
+  exmem_reg.io.in.debug_insn := idex_reg.io.out.debug_insn
+  exmem_reg.io.in.valid := idex_reg.io.out.valid
+  exmem_reg.io.in.rd := idex_reg.io.out.rd
 
   // MEM
 
-  io.dmem_addr := 0.U
-  io.dmem_write := 0.U
-  io.dmem_read := 0.U
-  io.dmem_wdata := 0.U
+  io.dmem_addr := Mux(exmem_reg.io.out.control.memRead, exmem_reg.io.out.alu_res, 0.U)
+  io.dmem_write := exmem_reg.io.out.control.memWrite
+  io.dmem_read := exmem_reg.io.out.control.memRead
+  io.dmem_wdata := exmem_reg.io.out.rs2_data
 
   
 
-  memwb_reg.io.in.alu_res := 0.U
-  memwb_reg.io.in.control := exmem_reg.io.out.control
-  memwb_reg.io.in.debug_insn := 0.U
-  memwb_reg.io.in.pc := 0.U
-  memwb_reg.io.in.valid := 0.U
-  memwb_reg.io.in.rd := 0.U
+  memwb_reg.io.in.alu_res := exmem_reg.io.out.alu_res
+  memwb_reg.io.in.control := Mux(exmem_reg.io.out.valid, exmem_reg.io.out.control, nullControl.io.out)
+  memwb_reg.io.in.debug_insn := exmem_reg.io.out.debug_insn
+  memwb_reg.io.in.pc := exmem_reg.io.out.pc
+  memwb_reg.io.in.valid := exmem_reg.io.out.valid
+  memwb_reg.io.in.rd := exmem_reg.io.out.rd
   
 
 
@@ -299,8 +463,7 @@ class Core extends Module {
 
 
   // WB
-
-  regfile.io.wdata := 0.U
+  regfile.io.wdata := Mux(memwb_reg.io.out.valid, Mux(memwb_reg.io.out.control.memToReg, io.dmem_rdata, memwb_reg.io.out.alu_res), 0.U)
   
 
   /* Your code to here */

@@ -46,7 +46,7 @@ class IDEX extends Bundle {
   override def toPrintable: Printable = {
     (p"IDEX: (${Hexadecimal(pc)}, ${Hexadecimal(debug_insn)}, ${valid})" + 
     p" (${control})" +
-    p" (${rs1_data}, ${rs2_data}, ${imm64}, ${rd}, ${funct3}, ${funct7})"
+    p" (rs1_data: ${rs1_data}, rs2_data: ${rs2_data}, imm64: ${imm64}, rd:${rd}, funct3: ${funct3}, funct7: ${funct7})"
     )
   }
 }
@@ -79,7 +79,7 @@ class EXMEM extends Bundle {
   override def toPrintable: Printable = {
     (p"EXMEM: (${Hexadecimal(pc)}, ${Hexadecimal(debug_insn)}, ${valid})" + 
     p" (${control})" +
-    p" (${rd}, ${branch_target}, ${branch_taken}, ${alu_res}, ${rs2_data})"
+    p" (rd: ${rd}, branch_target: ${branch_target}, branch_taken: ${branch_taken}, alu_res: ${alu_res}, rs2_data: ${rs2_data})"
     )
   }
 }
@@ -108,7 +108,7 @@ class MEMWB extends Bundle {
   override def toPrintable: Printable = {
     (p"MEMWB: (${Hexadecimal(pc)}, ${Hexadecimal(debug_insn)}, ${valid})" + 
     p" (${control})" +
-    p" (${rd}, ${alu_res})"
+    p" (rd: ${rd}, alu_res: ${alu_res})"
     )
   }
 }
