@@ -55,8 +55,8 @@ class ControlModule extends Module {
     }
     is(OpCode.store){
       io.out.aluOp := AluOp.sd
-      io.out.write_reg := true.B
-      io.out.aluSrcFromReg := false.B
+      io.out.write_reg := false.B
+      io.out.aluSrcFromReg := true.B
       io.out.memWrite := true.B
       io.out.branch := false.B
       io.out.memRead := false.B
@@ -77,7 +77,8 @@ class ControlModule extends Module {
       io.out.memWrite := false.B
       io.out.memToReg := false.B
       io.out.branch := true.B
-      io.out.memRead := false.B
+      io.out.memRead := false.B  
+      io.out.stall := true.B
     }
     is(OpCode.jal){
       io.out.aluOp := AluOp.beq
@@ -366,10 +367,10 @@ class Core extends Module {
   // IF Stage
   
   
-  ifid_reg.io.stall := control.io.out.stall
+  ifid_reg.io.stall := 0.U
   
   
-  next_pc := Mux(exmem_reg.io.out.branch_taken, exmem_reg.io.out.pc, pc + 4.U)
+  next_pc := Mux(exmem_reg.io.out.branch_taken, exmem_reg.io.out.branch_target, pc + 4.U)
     
   // Fetch
 
@@ -400,7 +401,7 @@ class Core extends Module {
   idex_reg.io.in.rs2_data := regfile.io.rs2_out
   idex_reg.io.in.imm64 := immGen.io.imm
   idex_reg.io.in.rd := decoder.io.rd
-  idex_reg.io.in.control := Mux(ifid_reg.io.out.valid, control.io.out, nullControl.io.out)
+  idex_reg.io.in.control := control.io.out
   idex_reg.io.in.funct3 := decoder.io.funct3
   idex_reg.io.in.funct7 := decoder.io.funct7
   idex_reg.io.in.debug_insn := ifid_reg.io.out.insn
@@ -428,29 +429,36 @@ class Core extends Module {
   alu.io.b := Mux(idex_reg.io.out.control.aluSrcFromReg, idex_reg.io.out.imm64 ,idex_reg.io.out.rs2_data) 
 
   
+  exmem_reg.io.in.branch_target := idex_reg.io.out.pc + idex_reg.io.out.imm64 * 2.U
+  // ifid_reg.io.stall := control.io.out.stall
 
-  exmem_reg.io.in.branch_target := 0.U
-  exmem_reg.io.in.branch_taken := Mux(alu.io.zero && idex_reg.io.out.control.branch, true.B, false.B)
+  when(idex_reg.io.out.control.branch){
+    exmem_reg.io.in.branch_taken := Mux(alu.io.zero, true.B, false.B)
+    next_pc := pc 
+    ifid_reg.io.in.valid := false.B
+    idex_reg.io.in.valid := false.B
+  } .otherwise {
+    exmem_reg.io.in.branch_taken := false.B
+  }
 
   exmem_reg.io.in.alu_res := alu.io.res
   exmem_reg.io.in.rs2_data := idex_reg.io.out.rs2_data
-  exmem_reg.io.in.control := Mux(idex_reg.io.out.valid, idex_reg.io.out.control, nullControl.io.out)
-  exmem_reg.io.in.pc := idex_reg.io.out.pc + idex_reg.io.out.imm64 * 2.U
+  exmem_reg.io.in.control := idex_reg.io.out.control
+  exmem_reg.io.in.pc := idex_reg.io.out.pc
   exmem_reg.io.in.debug_insn := idex_reg.io.out.debug_insn
   exmem_reg.io.in.valid := idex_reg.io.out.valid
   exmem_reg.io.in.rd := idex_reg.io.out.rd
 
   // MEM
 
-  io.dmem_addr := Mux(exmem_reg.io.out.control.memRead, exmem_reg.io.out.alu_res, 0.U)
+  io.dmem_addr := Mux(exmem_reg.io.out.control.memRead || exmem_reg.io.out.control.memWrite, exmem_reg.io.out.alu_res, 0.U)
   io.dmem_write := exmem_reg.io.out.control.memWrite
   io.dmem_read := exmem_reg.io.out.control.memRead
   io.dmem_wdata := exmem_reg.io.out.rs2_data
-
   
 
   memwb_reg.io.in.alu_res := exmem_reg.io.out.alu_res
-  memwb_reg.io.in.control := Mux(exmem_reg.io.out.valid, exmem_reg.io.out.control, nullControl.io.out)
+  memwb_reg.io.in.control := exmem_reg.io.out.control
   memwb_reg.io.in.debug_insn := exmem_reg.io.out.debug_insn
   memwb_reg.io.in.pc := exmem_reg.io.out.pc
   memwb_reg.io.in.valid := exmem_reg.io.out.valid
