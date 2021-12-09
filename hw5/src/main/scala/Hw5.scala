@@ -92,17 +92,34 @@ class UniCache() extends Module  {
   io.mem_req.raddr := req_reg.addr
   // Cat(req_reg.addr(63,4), 0.U(4.W))
   io.mem_req.read := state === s_allocate
-  when(io.mem_resp.valid && state === s_allocate){
-    rdata_reg := io.mem_resp.rdata(255,192)
-  }
 
 
 
   // wait state
   when(state === s_wait && io.mem_resp.valid){
+    // rdata_reg := io.mem_resp.rdata(255,192)
     cache_write := state === s_wait
     windex := req_reg.addr(5,4)
     wtag := req_reg.addr(63,6)
+    switch(req_reg.addr(3,0)){
+      is(0.U) {
+        rdata_reg := io.mem_resp.rdata(63,0)
+      }
+
+      is(4.U){
+        rdata_reg := io.mem_resp.rdata(127, 64)
+      }
+
+      is(8.U){
+        rdata_reg := io.mem_resp.rdata(191,128)
+      }
+
+      is(12.U){
+        rdata_reg := io.mem_resp.rdata(255,192)
+      }
+    }
+
+
     // wdata := io.mem_resp.rdata
     when(req_reg.write){
     // when(req_reg.write){
@@ -127,7 +144,6 @@ class UniCache() extends Module  {
       }
     } .otherwise {
       wdata := io.mem_resp.rdata
-      rdata_reg := io.mem_resp.rdata(255,192)
     }
     cdata_reg := wdata
     printf("we cahed %d at %x\n", req_reg.addr(3,0), wdata)
@@ -164,8 +180,8 @@ class UniCache() extends Module  {
     }
 
     is(s_allocate){
-      state := Mux(wb,Mux(io.mem_resp.rdata === data_reg, s_wait, s_allocate), s_wait)
-      // state := s_wait
+      // state := Mux(wb, Mux(io.mem_resp.rdata === data_reg, s_wait, s_allocate), s_wait)
+      state := s_wait
     }
 
     is(s_wait){
