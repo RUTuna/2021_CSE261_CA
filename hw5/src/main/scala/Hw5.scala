@@ -56,7 +56,7 @@ class UniCache() extends Module  {
   wvalid := false.B
   wdata := 0.U
 
-
+  val goCom = RegInit(false.B)
 
   // idle state
   when(io.req.valid){
@@ -73,7 +73,7 @@ class UniCache() extends Module  {
   // compare state
   val hit = Wire(Bool())
   val wb = RegInit(false.B)
-  wb := Mux(fromValidArray && req_reg.write, true.B, false.B)
+  wb := Mux(fromValidArray, true.B, false.B)
   hit := Mux(!wb && fromValidArray && fromTagArray === req_reg.addr(63,6), true.B, false.B)
 
   tag_reg := fromTagArray
@@ -97,7 +97,6 @@ class UniCache() extends Module  {
 
   // wait state
   when(state === s_wait && io.mem_resp.valid){
-    // rdata_reg := io.mem_resp.rdata(255,192)
     cache_write := state === s_wait
     windex := req_reg.addr(5,4)
     wtag := req_reg.addr(63,6)
@@ -119,10 +118,7 @@ class UniCache() extends Module  {
       }
     }
 
-
-    // wdata := io.mem_resp.rdata
     when(req_reg.write){
-    // when(req_reg.write){
       switch(req_reg.addr(3,0)){
         is(0.U) {
           wdata := Cat(io.mem_resp.rdata(255,64), req_reg.wdata(63,0))
@@ -146,7 +142,6 @@ class UniCache() extends Module  {
       wdata := io.mem_resp.rdata
     }
     cdata_reg := wdata
-    printf("we cahed %d at %x\n", req_reg.addr(3,0), wdata)
     wvalid := true.B
   }
 
@@ -165,7 +160,7 @@ class UniCache() extends Module  {
 
   switch(state){
     is(s_idle){
-      state := Mux(io.req.valid, s_compare_tag, s_idle)
+      state := Mux(goCom || io.req.valid, s_compare_tag, s_idle)
     }
 
     is(s_compare_tag){
@@ -180,14 +175,14 @@ class UniCache() extends Module  {
     }
 
     is(s_allocate){
-      // state := Mux(wb, Mux(io.mem_resp.rdata === data_reg, s_wait, s_allocate), s_wait)
       state := s_wait
     }
 
     is(s_wait){
       val isChached = Wire(Bool())
       isChached := Mux(fromValidArray && fromDataArray === cdata_reg && wdata === 0.U, true.B, false.B)
-      state := Mux(io.req.valid, s_compare_tag, Mux(isChached, s_idle, s_wait))
+      goCom := Mux(io.req.valid, true.B, false.B)
+      state := Mux(io.req.valid, s_idle, Mux(isChached, s_idle, s_wait))
       io.req_ready := Mux(isChached, true.B, false.B)
     }
 
@@ -216,7 +211,6 @@ class UniCache() extends Module  {
     dataArray.write(io.debug_clear, 0.U)
     validArray.write(io.debug_clear, false.B)
   }.elsewhen(cache_write) {
-    printf("cache_write %d %d %x %d\n",windex ,wtag ,wdata, wvalid)
     tagArray.write(windex, wtag)
     dataArray.write(windex, wdata)
     validArray.write(windex, wvalid)
@@ -230,10 +224,6 @@ class UniCache() extends Module  {
   cycle := Mux(io.debug_valid, 0.U, cycle + 1.U)
   when(!io.debug_valid) {
     printf(p"$cycle: (state: $state)\n")
-    printf(p"$req_reg\n")
-    // printf("array %d %d %x\n", fromTagArray, fromValidArray, fromDataArray)
-    printf("wdata %x %x %x\n", wdata, cdata_reg, rdata_reg)
-    printf(p"$io\n")
   }
   
   
